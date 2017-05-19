@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Product Id="*" Name="Setup" Language="1033" Version="1.0.0.0" Manufacturer="MrKich" UpgradeCode="44d72d9b-d09c-4243-abb4-0c3ee7781ad0">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+		<MediaTemplate />
+
+		<Feature Id="ProductFeature" Title="Setup" Level="1">
+			<ComponentGroupRef Id="ProductComponents" />
+		</Feature>
+	</Product>
+
+	<Fragment>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFilesFolder">
+				<Directory Id="INSTALLFOLDER" Name="UsbMonitor" />
+			</Directory>
+		</Directory>
+	</Fragment>
+
+	<Fragment>
+		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="UsbMonitor" Guid="{abe5e3d0-8070-4d60-ac95-4a78a0ce253e}">
+        <File Source="$(var.UsbMonitor.TargetPath)" />
+        <ServiceInstall
+          Id="ServiceInstaller"
+          Type="ownProcess"
+          Vital="yes"
+          Name="UsbMonitor"
+          DisplayName="UsbMonitor"
+          Description="Monitors all changes on usb drives (user-based)."
+          Start="auto"
+          Account="LocalSystem"
+          ErrorControl="ignore"
+          Interactive="no">
+        </ServiceInstall>
+        <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="UsbMonitor" Wait="yes" />
+      </Component>
+      <Component Id="LogViewer" Guid="{d61aab4c-6580-4ea1-874c-b77517015c60}">
+        <File Source="$(var.LogViewer.TargetPath)" />
+      </Component>
+      <Component Id="UsbEject" Guid="{f759389b-ba3b-415f-92af-a55afbff68cf}">
+        <File Source="$(var.UsbEject.TargetPath)" />
+      </Component>
+
+      <Component Id="EntityFramework" Guid="{242CCB5D-9AE7-4F06-9BBA-99FDC4261899}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)EntityFramework.dll" />
+      </Component>
+      <Component Id="SQLite.Interop" Guid="{75C7BEE4-E821-4962-8DC1-EFB60198343E}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)x86\SQLite.Interop.dll" />
+      </Component>
+      <Component Id="System.Data.SQLite.Linq" Guid="{D6B08AC8-035C-4E6E-9431-321121180F61}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)System.Data.SQLite.Linq.dll" />
+      </Component>
+      <Component Id="System.Data.SQLite" Guid="{3E971C22-EDD6-41CD-8F51-C7BDD01A2FEC}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)System.Data.SQLite.dll" />
+      </Component>
+      <Component Id="SQLite.CodeFirst" Guid="{4AA2FDA6-45C5-4EB6-B56D-428A68C81006}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)SQLite.CodeFirst.dll" />
+      </Component>
+      <Component Id="EntityFramework.SqlServer" Guid="{0F458225-ECE9-4EB2-9B59-EDE590A36DBF}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)EntityFramework.SqlServer.dll" />
+      </Component>
+      <Component Id="System.Data.SQLite.EF6" Guid="{6C6A8E7D-8544-44EE-9B72-A421276BACF2}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)System.Data.SQLite.EF6.dll" />
+      </Component>
+      <Component Id="UsbMonitor.exe.config" Guid="{5D3D4F5B-0012-42B3-9387-6578F962AA31}">
+        <File KeyPath="yes" Source="$(var.UsbMonitor.TargetDir)UsbMonitor.exe.config" />
+      </Component>
+      <Component Id="LogViewer.exe.config" Guid="{BE77DB71-FEA4-4415-94B9-55DC3B9BC113}">
+        <File KeyPath="yes" Source="$(var.LogViewer.TargetDir)LogViewer.exe.config" />
+      </Component>
+    </ComponentGroup>
+	</Fragment>
+</Wix>

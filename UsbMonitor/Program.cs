@@ -6,17 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace UsbMonitor {
-    static class Program {
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
-        static void Main() {
-            ServiceBase[] ServicesToRun;
-            ServicesToRun = new ServiceBase[]
-            {
-                new Service1()
-            };
-            ServiceBase.Run(ServicesToRun);
+    public static class Program {
+        public static void Main() {
+            UsbMonitor um = new UsbMonitor();
+            //um.TestStartAndStop(new string[0]);
+            ServiceBase.Run(um);
         }
     }
 }

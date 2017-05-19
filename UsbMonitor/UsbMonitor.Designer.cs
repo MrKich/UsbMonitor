@@ -1,5 +1,5 @@
-﻿namespace UsbMonitor {
-    partial class Service1 {
+namespace UsbMonitor {
+    partial class UsbMonitor {
         /// <summary> 
         /// Required designer variable.
         /// </summary>
@@ -23,10 +23,17 @@
         /// the contents of this method with the code editor.
         /// </summary>
         private void InitializeComponent() {
-            components = new System.ComponentModel.Container();
-            this.ServiceName = "Service1";
+            this.eventLog = new System.Diagnostics.EventLog();
+            ((System.ComponentModel.ISupportInitialize)(this.eventLog)).BeginInit();
+            // 
+            // UsbMonitor
+            // 
+            this.ServiceName = "UsbMonitor";
+            ((System.ComponentModel.ISupportInitialize)(this.eventLog)).EndInit();
+
         }
 
         #endregion
+        private System.Diagnostics.EventLog eventLog;
     }
 }
