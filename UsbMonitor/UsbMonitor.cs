@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -18,8 +18,13 @@ using UsbEject.Library;
 namespace UsbMonitor {
     public partial class UsbMonitor : ServiceBase {
         private ManagementEventWatcher _mewCreation;
+
+        // Храним все созданные FileSystemWatcher'ы
         private Dictionary<string, FileSystemWatcher> _fswMap = new Dictionary<string, FileSystemWatcher>();
+
+        // Кэш буква_диск->серийник для подлюченных usb
         private Dictionary<string, string> _letterToSerialMap = new Dictionary<string, string>();
+
         private Dictionary<string, DeviceInformation> _letterToDevInfoMap = new Dictionary<string, DeviceInformation>();
         private LogDatabase _db;
         private ManualResetEvent _stopEvent = new ManualResetEvent(false);
@@ -33,31 +38,31 @@ namespace UsbMonitor {
             InitializeComponent();
         }
 
-        internal void TestStartAndStop(string[] args) {
-            OnStart(args);
-            Console.ReadLine();
-            OnStop();
-        }
-
+        /// <summary>
+        /// Вызывается при запуске сервиса
+        /// </summary>
         protected override void OnStart(string[] args) {
-            //Thread.Sleep(13 * 1000);
-            //eventLog.WriteEntry("Started");
-
             base.OnStart(args);
 
+            // Регистрируем наш обработчик событий сервиса
             RegisterDeviceNotification();
 
             _db = new LogDatabase();
+            // Если файл не существует на диске, то просим базу данных его создать и даём администраторам доступ к файлу
             if (!File.Exists(_dbPath)) {
                 _db.Database.Initialize(false);
                 GrantAccess(_dbPath);
             }
 
+            // Отдельный поток для сохранения базы данных каждые 5 секунд
             _dbSaverThread = new Thread(DbSaver);
+
+            // Подписываемся на события вставки/удаления usb
             WqlEventQuery query = new WqlEventQuery("SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 2 OR EventType = 3");
             _mewCreation = new ManagementEventWatcher(query);
             _mewCreation.EventArrived += new EventArrivedEventHandler(USBEventArrived_Creation);
 
+            // Получаем список дисков, которые уже подключены при запуске сервиса
             var usbDisks = GetLogicalUsbDisks();
             if (usbDisks == null) {
                 Console.WriteLine("Cannot get usb disks, stopped.");
@@ -65,17 +70,22 @@ namespace UsbMonitor {
                 return;
             }
 
+            // И проверяем допустимы ли они (если нет, то отключаем их)
             foreach(var item in usbDisks) {
                 if (item["caption"] == null) {
                     continue;
                 }
                 CheckAttachedUsb((string)item["caption"], (string)item["VolumeSerialNumber"]);
             }
-            
+
+            // Запускаем подписку на события и сохранялку базы данных
             _mewCreation.Start();
             _dbSaverThread.Start();
         }
 
+        /// <summary>
+        /// Вызывается при остановке службы
+        /// </summary>
         protected override void OnStop() {
             base.OnStop();
             try {
@@ -83,61 +93,36 @@ namespace UsbMonitor {
             } catch (COMException) {
                 // Already stopped, doing nothing
             }
+
+            // Отключаем сохранялку и ждём, пока она завершиться
             _stopEvent.Set();
             if (_dbSaverThread.ThreadState == System.Threading.ThreadState.Running) {
                 _dbSaverThread.Join();
             }
+
+            // Удаляем все обработчики и открытые объекты
             Win32.UnregisterDeviceNotification(_deviceEventHandle);
             foreach(var item in _letterToDevInfoMap.Keys.ToList()) {
                 UnregisterHandle(item);
             }
         }
 
+        /// <summary>
+        /// Т.к. C# не позволяет получить доступ к внутреннему ServiceControlHandler
+        /// А нам нужен доступ, чтобы отловить безопасного удаления флешки, то пишем свой
+        /// </summary>
         private int ServiceControlHandler(int control, int eventType, IntPtr eventData, IntPtr context) {
             if (control == Win32.SERVICE_CONTROL_STOP || control == Win32.SERVICE_CONTROL_SHUTDOWN) {
                 Stop();
             } else if (control == Win32.SERVICE_CONTROL_DEVICEEVENT) {
                 switch (eventType) {
-                    /*case Win32.DBT_DEVICEARRIVAL:
-                        Win32.DEV_BROADCAST_HDR hdr;
-                        hdr = (Win32.DEV_BROADCAST_HDR)
-                            Marshal.PtrToStructure(eventData, typeof(Win32.DEV_BROADCAST_HDR));
-
-                        if (hdr.dbcc_devicetype == Win32.DBT_DEVTYP_DEVICEINTERFACE) {
-                            Win32.DEV_BROADCAST_DEVICEINTERFACE deviceInterface;
-                            deviceInterface = (Win32.DEV_BROADCAST_DEVICEINTERFACE)
-                                Marshal.PtrToStructure(eventData, typeof(Win32.DEV_BROADCAST_DEVICEINTERFACE));
-                            string name = new string(deviceInterface.dbcc_name);
-                            name = name.Substring(0, name.IndexOf('\0')) + "\\";
-
-                            StringBuilder stringBuilder = new StringBuilder();
-                            Win32.GetVolumeNameForVolumeMountPoint(name, stringBuilder, 100);
-
-                            uint stringReturnLength = 0;
-                            string driveLetter = "";
-
-                            Win32.GetVolumePathNamesForVolumeNameW(stringBuilder.ToString(), driveLetter, (uint)driveLetter.Length, ref stringReturnLength);
-                            if (stringReturnLength == 0) {
-                                // TODO handle error
-                            }
-
-                            driveLetter = new string(new char[stringReturnLength]);
-
-                            if (!Win32.GetVolumePathNamesForVolumeNameW(stringBuilder.ToString(), driveLetter, stringReturnLength, ref stringReturnLength)) {
-                                // TODO handle error
-                            }
-
-                            RegisterForHandle(driveLetter[0]);
-
-                            fileSystemWatcher.Path = driveLetter[0] + ":\\";
-                            fileSystemWatcher.EnableRaisingEvents = true;
-                        }
-                        break;*/
+                    // Запрос на безопасное удаление
                     case Win32.DBT_DEVICEQUERYREMOVE:
                         Win32.DEV_BROADCAST_HDR hdr;
                         hdr = (Win32.DEV_BROADCAST_HDR)
                             Marshal.PtrToStructure(eventData, typeof(Win32.DEV_BROADCAST_HDR));
 
+                        // Дёргаем из структур windows необходимый нам путь к диску
                         if (hdr.dbcc_devicetype == Win32.DBT_DEVTYP_HANDLE) {
                             Win32.DEV_BROADCAST_HANDLE broadcastHandle;
                             broadcastHandle = (Win32.DEV_BROADCAST_HANDLE)
@@ -150,12 +135,11 @@ namespace UsbMonitor {
                                 }
                             }
 
+                            // Удаляем все связанные с диском объекты
                             if (driveLetter != null) {
                                 UnregisterHandle(driveLetter);
                             }
                         }
-                        break;
-                    case Win32.DBT_DEVICEREMOVECOMPLETE:
                         break;
                 }
             }
@@ -163,6 +147,9 @@ namespace UsbMonitor {
             return 0;
         }
 
+        /// <summary>
+        /// Удаляет все открытые объекты, которые могут занимать диск (например, FileSystemWatcher)
+        /// </summary>
         private void UnregisterHandle(string driveLetter) {
             DeviceInformation devInfo = null;
             if (!_letterToDevInfoMap.TryGetValue(driveLetter, out devInfo)) {
@@ -181,6 +168,10 @@ namespace UsbMonitor {
             _letterToDevInfoMap.Remove(driveLetter);
         }
 
+        /// <summary>
+        /// Чтобы поймать запрос на безопасное удаление, нам нужно ещё получить дескриптор диска и держать его открытым
+        /// (явно указываем, что этот диск мы заняли и хотим получить уведомление, когда его захотят извлечь)
+        /// </summary>
         private void RegisterForHandle(string driveLetter) {
             var devInfo = new DeviceInformation();
             Win32.DEV_BROADCAST_HANDLE deviceHandle = new Win32.DEV_BROADCAST_HANDLE();
@@ -200,6 +191,9 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Функция, которая забирает у библиотеки сервиса C# управление обработчиком сервиса и передаёт его нашей функции
+        /// </summary>
         private void RegisterDeviceNotification() {
             _serviceCallback = new Win32.ServiceControlHandlerEx(ServiceControlHandler);
             Win32.RegisterServiceCtrlHandlerEx(ServiceName, _serviceCallback, IntPtr.Zero);
@@ -217,8 +211,11 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Функция, которая открывает тот самый дескриптор для диска
+        /// </summary>
         public static IntPtr CreateFileHandle(string driveLetter) {
-            // open the existing file for reading          
+            // open the existing file for reading
             IntPtr handle = Win32.CreateFile(
                   driveLetter,
                   Win32.GENERIC_READ,
@@ -235,20 +232,24 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Отвечает за присваивание правильных, безопасных прав для файла нашей базы данных
+        /// </summary>
         private void GrantAccess(string path) {
             var dInfo = new DirectoryInfo(path);
             var dSecurity = dInfo.GetAccessControl();
             var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
-            var everyone = new SecurityIdentifier(WellKnownSidType.WorldSid, null);
             var localSystem = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
             dSecurity.SetAccessRuleProtection(true, false);
             // dSecurity.SetOwner(localSystem);
-            //dSecurity.AddAccessRule(new FileSystemAccessRule(everyone, FileSystemRights.Read, InheritanceFlags.None, PropagationFlags.None, AccessControlType.Allow));
             dSecurity.AddAccessRule(new FileSystemAccessRule(admins, FileSystemRights.Read | FileSystemRights.Write, InheritanceFlags.None, PropagationFlags.None, AccessControlType.Allow));
             dSecurity.AddAccessRule(new FileSystemAccessRule(localSystem, FileSystemRights.FullControl, InheritanceFlags.None, PropagationFlags.None, AccessControlType.Allow));
             dInfo.SetAccessControl(dSecurity);
         }
 
+        /// <summary>
+        /// Крутимся в бесконечном цикле (пока нас не прервут) и сохраняем базу данных каждые 5 секунд, если есть изменения
+        /// </summary>
         private void DbSaver() {
             while (true) {
                 lock (_db.LogEntries) {
@@ -263,24 +264,38 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Заполняет базовую часть информации лога
+        /// </summary>
         private static void FillLogEntry(LogEntry entry, string Serial) {
             entry.When = DateTime.Now;
             entry.Username = GetCurrentActiveUser();
             entry.SerialNumber = Serial;
         }
 
+        /// <summary>
+        /// Добавляет лог в базу данных
+        /// Чтобы не было конфликтов с сохранялкой, сперва блокируем доступ сохранялке к базе данных
+        /// </summary>
         private void AddEntryToDatabase(LogEntry entry) {
             lock(_db.LogEntries) {
                 _db.LogEntries.Add(entry);
             }
         }
 
+        /// <summary>
+        /// Получает текущего пользователя компьютера (того, кто залогинен сейчас)
+        /// </summary>
         public static string GetCurrentActiveUser() {
             ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT UserName FROM Win32_ComputerSystem");
             ManagementObjectCollection collection = searcher.Get();
-            return (string)collection.Cast<ManagementBaseObject>().First()["UserName"];
+            var res = (string)collection.Cast<ManagementBaseObject>().First()["UserName"];
+            return res == null ? "NO_LOGGED_IN_USER" : res;
         }
 
+        /// <summary>
+        /// Добавляет объект FileSystemWatcher и запускает слежку за файлами по указанному пути
+        /// </summary>
         private void AddNewFSWatcher(string path) {
             FileSystemWatcher fsw;
             try {
@@ -299,6 +314,9 @@ namespace UsbMonitor {
             _fswMap.Add(path, fsw);
         }
 
+        /// <summary>
+        /// Получает серийный номер usb диска
+        /// </summary>
         protected string GetVolumeSerialNumberByName(string name) {
             var usbDisks = GetLogicalUsbDisks();
             if (usbDisks == null) {
@@ -313,6 +331,9 @@ namespace UsbMonitor {
             return null;
         }
 
+        /// <summary>
+        /// Возвращает все доступные usb диски
+        /// </summary>
         protected ManagementObject[] GetLogicalUsbDisks() {
             var res = new List<ManagementObject>();
             try {
@@ -339,6 +360,9 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Проверяет есть ли доступ у текущего пользователя к флешки с указанным серийным номером
+        /// </summary>
         private bool IsUsbAllowed(string serial) {
             string user = GetCurrentActiveUser();
             if (_db.RegisteredUsbs.Any(i => i.User.Username == user && i.UsbSerial == serial)) {
@@ -347,6 +371,9 @@ namespace UsbMonitor {
             return false;
         }
 
+        /// <summary>
+        /// WinApi возвращает внутренний путь к флешке, эта функция приводит его к нормальному виду (например к "C:\")
+        /// </summary>
         private string PathToSerial(string path) {
             var driveLetter = Path.GetPathRoot(path);
             if (driveLetter.Last() == Path.DirectorySeparatorChar) {
@@ -357,6 +384,9 @@ namespace UsbMonitor {
             return serial;
         }
 
+        /// <summary>
+        /// Отключаем заданный usb (пытаемся 9 раз с перерывом в 333 мс)
+        /// </summary>
         private void DetachUsb(string driveLetter) {
             var volumes = new VolumeDeviceClass();
             foreach(Volume vol in volumes.Devices) {
@@ -374,6 +404,10 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Проверяем есть ли у пользователя доступ к флешке и есть есть, то устанавливаем слежку за файлами
+        /// Если нет, то отключаем флешку
+        /// </summary>
         private void CheckAttachedUsb(string driveLetter, string serial) {
             _letterToSerialMap.Add(driveLetter, serial);
             if (IsUsbAllowed(serial)) {
@@ -392,15 +426,20 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Обработчик события вставки/удаления флешки
+        /// </summary>
         private void USBEventArrived_Creation(object sender, EventArrivedEventArgs e) {
             string driveLetter = (string)e.NewEvent.Properties["DriveName"].Value;
             ushort eventType = (ushort)e.NewEvent.Properties["EventType"].Value;
             var entry = new UsbStateEntry { DriveLetter = driveLetter };
             FillLogEntry(entry, null);
 
+            // Вставили
             if (eventType == 2) {
                 Console.WriteLine("Added: " + driveLetter);
                 entry.State = USB_STATE.INSERTED;
+                // Пытаемся получить серийник 9 раз по 333 мс
                 for (int i = 0; i < 9; ++i) {
                     entry.SerialNumber = GetVolumeSerialNumberByName(driveLetter);
                     if (entry.SerialNumber != null) {
@@ -411,6 +450,7 @@ namespace UsbMonitor {
                 }
                 CheckAttachedUsb(driveLetter, entry.SerialNumber);
                 AddEntryToDatabase(entry);
+            // Удалили
             } else if (eventType == 3) {
                 Console.WriteLine("Removed: " + driveLetter);
                 entry.State = USB_STATE.REMOVED;
@@ -431,6 +471,9 @@ namespace UsbMonitor {
             }
         }
 
+        /// <summary>
+        /// Обработчик изменения файлов на диске (Создание/Изменение/Удаление)
+        /// </summary>
         private void Fsw_Changed(object sender, FileSystemEventArgs e) {
             var entry = new FSWatcherEntry { Path = e.FullPath };
 
@@ -452,6 +495,9 @@ namespace UsbMonitor {
             AddEntryToDatabase(entry);
         }
 
+        /// <summary>
+        /// Обработчик переименования файла на диске
+        /// </summary>
         private void Fsw_Renamed(object sender, RenamedEventArgs e) {
             var entry = new FSWatcherEntry();
             FillLogEntry(entry, PathToSerial(e.FullPath));
@@ -462,6 +508,7 @@ namespace UsbMonitor {
             AddEntryToDatabase(entry);
         }
 
+        // Дальше идут страшные структуры и функции для работы с WinApi
         private class DeviceInformation {
             public IntPtr DeviceDirectoryHandle;
             public IntPtr DeviceNotifyHandle;
