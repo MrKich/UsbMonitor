@@ -65,8 +65,8 @@ namespace LogViewer {
             cbWindowsUser.Items.Clear();
             cbWindowsUser.Items.Add(ALL_USERS);
             _windowsUsers.UnionWith(_allWindowsUsers);
+            _windowsUsers.UnionWith(_registeredUsers.Keys.ToArray());
             cbWindowsUser.Items.AddRange(_windowsUsers.ToArray());
-            //cbWindowsUser.Items.AddRange(_registeredUsers.Keys.ToArray());
             cbWindowsUser.SelectedIndex = 0;
 
             tbSerial.Clear();
