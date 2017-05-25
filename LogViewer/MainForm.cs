@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Management;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -15,6 +16,7 @@ namespace LogViewer {
 
         private LogDatabase _db;
         private SortedSet<string> _windowsUsers = new SortedSet<string>();
+        private SortedSet<string> _allWindowsUsers = new SortedSet<string>();
         private Dictionary<string, RegisteredUser> _registeredUsers = new Dictionary<string, RegisteredUser>();
 
         public MainForm() {
@@ -30,12 +32,19 @@ namespace LogViewer {
                 Close();
                 return;
             }
-}
+        }
 
         private void InitUsers() {
             _registeredUsers.Clear();
             foreach(var user in _db.RegisteredUsers) {
                 _registeredUsers.Add(user.Username, user);
+            }
+
+            _allWindowsUsers.Clear();
+            SelectQuery query = new SelectQuery("Win32_UserAccount");
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
+            foreach (ManagementObject envVar in searcher.Get()) {
+                _allWindowsUsers.Add(Environment.UserDomainName + "\\" + (string)envVar["Name"]);
             }
 
             _windowsUsers.Clear();
@@ -55,8 +64,9 @@ namespace LogViewer {
 
             cbWindowsUser.Items.Clear();
             cbWindowsUser.Items.Add(ALL_USERS);
+            _windowsUsers.UnionWith(_allWindowsUsers);
             cbWindowsUser.Items.AddRange(_windowsUsers.ToArray());
-            cbWindowsUser.Items.AddRange(_registeredUsers.Keys.ToArray());
+            //cbWindowsUser.Items.AddRange(_registeredUsers.Keys.ToArray());
             cbWindowsUser.SelectedIndex = 0;
 
             tbSerial.Clear();

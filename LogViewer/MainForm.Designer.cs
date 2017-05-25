@@ -366,6 +366,7 @@ namespace LogViewer {
             // 
             // cbUsbUsers
             // 
+            this.cbUsbUsers.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cbUsbUsers.FormattingEnabled = true;
             this.cbUsbUsers.Location = new System.Drawing.Point(3, 16);
             this.cbUsbUsers.Name = "cbUsbUsers";
