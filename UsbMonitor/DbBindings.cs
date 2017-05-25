@@ -18,7 +18,9 @@ namespace UsbMonitor {
         REMOVED,
     }
 
-    // Базовый класс логов (остальные будут от него наследоваться)
+    /// <summary>
+    /// Базовый класс логов (остальные будут от него наследоваться)
+    /// </summary>
     public class LogEntry {
         public int Id { get; set; }
         public string Username { get; set; }
@@ -26,20 +28,26 @@ namespace UsbMonitor {
         public string SerialNumber { get; set; }
     }
 
-    // Класс-описание для логгирования вставки/удаления usb
+    /// <summary>
+    /// Класс-описание для логгирования вставки/удаления usb
+    /// </summary>
     public class UsbStateEntry : LogEntry {
         public USB_STATE State { get; set; }
         public string DriveLetter { get; set; }
     }
 
-    // Класс-описание для логгирования операций над файлами
+    /// <summary>
+    /// Класс-описание для логгирования операций над файлами
+    /// </summary>
     public class FSWatcherEntry : LogEntry {
         public FILE_STATE State { get; set; }
         public string OldPath { get; set; }
         public string Path { get; set; }
     }
 
-    // Класс-описание зарегистрированных пользователей
+    /// <summary>
+    /// Класс-описание зарегистрированных пользователей
+    /// </summary>
     public class RegisteredUser {
         public int Id { get; set; }
         public string Username { get; set; }
@@ -51,14 +59,18 @@ namespace UsbMonitor {
         }
     }
 
-    // Класс-описание допустимых usb
+    /// <summary>
+    /// Класс-описание допустимых usb
+    /// </summary>
     public class RegisteredUsbEntry {
         public int Id { get; set; }
         public RegisteredUser User { get; set; }
         public string UsbSerial { get; set; }
     }
 
-    // Основной класс, который представляет будущую базу данных
+    /// <summary>
+    /// Основной класс, который представляет будущую базу данных
+    /// </summary>
     public class LogDatabase : DbContext {
         public LogDatabase() : base(new SQLiteConnection() { ConnectionString =
             new SQLiteConnectionStringBuilder() {

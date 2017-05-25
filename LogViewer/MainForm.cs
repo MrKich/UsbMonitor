@@ -25,6 +25,7 @@ namespace LogViewer {
 
         private void MainForm_Load(object sender, EventArgs e) {
             _db = new LogDatabase();
+            // Попытка проинициализировать базу данных (если нет, то падаем с сообщением)
             try {
                 InitUsers();
             } catch (System.Data.Entity.Core.EntityException) {
@@ -40,6 +41,7 @@ namespace LogViewer {
                 _registeredUsers.Add(user.Username, user);
             }
 
+            // Дёргаем с помощью WMI локальных пользователей компьютера и добавляем к ним текущий домен
             _allWindowsUsers.Clear();
             SelectQuery query = new SelectQuery("Win32_UserAccount");
             ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
@@ -47,21 +49,29 @@ namespace LogViewer {
                 _allWindowsUsers.Add(Environment.UserDomainName + "\\" + (string)envVar["Name"]);
             }
 
+            // Здесь хранятся пользователи windows, без зарегистрированных
             _windowsUsers.Clear();
             _windowsUsers.UnionWith(_db.LogEntries.Select(entry => entry.Username));
             _windowsUsers.RemoveWhere(u => _registeredUsers.ContainsKey(u));
 
+            // Combo box, хранящий имя пользователей для логов
+            // Должен иметь, всех пользователей, которые когда-либо светились в логах (не только зарегистрированных)
             cbUsers.Items.Clear();
             cbUsers.Items.Add(ALL_USERS);
             cbUsers.Items.AddRange(_registeredUsers.Values.ToArray());
             cbUsers.Items.AddRange(_windowsUsers.ToArray());
             cbUsers.SelectedIndex = 0;
 
+            // Combo box, хранящий пользователей для регистрации нового usb
+            // Должны быть только зарегистрированные пользователи
             cbUsbUsers.Items.Clear();
             cbUsbUsers.Items.Add(ALL_USERS);
             cbUsbUsers.Items.AddRange(_registeredUsers.Values.ToArray());
             cbUsbUsers.SelectedIndex = 0;
 
+            // Combo box, хранящий пользователей для регистрации новых пользователей
+            // Должен хранить всех пользователей windows + зарегистрированных пользователей
+            // (вдруг пока ещё такого пользователя windows не существует)
             cbWindowsUser.Items.Clear();
             cbWindowsUser.Items.Add(ALL_USERS);
             _windowsUsers.UnionWith(_allWindowsUsers);
@@ -69,6 +79,7 @@ namespace LogViewer {
             cbWindowsUser.Items.AddRange(_windowsUsers.ToArray());
             cbWindowsUser.SelectedIndex = 0;
 
+            // Очистка всех полей
             tbSerial.Clear();
             tbUsbSerial.Clear();
             tbPath.Clear();
@@ -79,6 +90,10 @@ namespace LogViewer {
             tbSecondName.Clear();
         }
 
+        /// <summary>
+        /// Отвечает за фильтрацию логов (чтобы их искать можно было по имени, файлу и т.д.)
+        /// Вся фильтрация по цепочке накладывается друг на друга с помощью LINQ
+        /// </summary>
         private void FilterLogEntries() {
             IEnumerable<LogEntry> logs;
             var username = cbUsers.SelectedItem as string;
@@ -113,6 +128,9 @@ namespace LogViewer {
             lbEvents.Items.AddRange(logs.Reverse().Select(l => LogEntryToListBoxItem(l)).ToArray());
         }
 
+        /// <summary>
+        /// Фильтрация допустимых usb
+        /// </summary>
         private void FilterRegisteredUsb() {
             IEnumerable<RegisteredUsbEntry> usb;
             if (cbUsbUsers.SelectedItem as string == ALL_USERS) {
@@ -130,6 +148,9 @@ namespace LogViewer {
                 .ToArray());
         }
 
+        /// <summary>
+        /// Фильтрация зарегистрированных пользователей
+        /// </summary>
         private void FilterRegisteredUsers() {
             IEnumerable<RegisteredUser> users;
             if ((string)cbWindowsUser.SelectedItem == ALL_USERS) {
@@ -153,6 +174,9 @@ namespace LogViewer {
             }).ToArray());
         }
 
+        /// <summary>
+        /// Переводим состояния usb в строку для отображения
+        /// </summary>
         private static string UsbStateToString(USB_STATE state) {
             switch (state) {
                 case USB_STATE.INSERTED:
@@ -166,6 +190,9 @@ namespace LogViewer {
             }
         }
 
+        /// <summary>
+        /// Переводим состояния операций над файлами в строку для отображения
+        /// </summary>
         private static string FileStateToString(FILE_STATE state) {
             switch (state) {
                 case FILE_STATE.CHANGED:
@@ -181,6 +208,9 @@ namespace LogViewer {
             }
         }
 
+        /// <summary>
+        /// Переводит объект лога в его текстовое представление
+        /// </summary>
         private ListBoxItem LogEntryToListBoxItem(LogEntry logEntry) {
             var usbEntry = logEntry as UsbStateEntry;
             StringBuilder sb = new StringBuilder();
@@ -192,7 +222,7 @@ namespace LogViewer {
             if (user != null) {
                 username = user.ToString();
             }
-            
+
             string serial = logEntry.SerialNumber == null ? "NO_SERIAL" : logEntry.SerialNumber;
             sb.AppendFormat("{0} {1} [{2}] <{3}>:\n  ", when.ToShortDateString(),
                 when.ToLongTimeString(), username, serial);
@@ -216,6 +246,9 @@ namespace LogViewer {
             };
         }
 
+        /// <summary>
+        /// Переводит объект допустимого usb в его текстовое представление
+        /// </summary>
         private static ListBoxItem RegisteredUsbEntryToBoxItem(RegisteredUsbEntry entry) {
             return new ListBoxItem {
                 Id = entry.Id,
@@ -227,6 +260,9 @@ namespace LogViewer {
             FilterLogEntries();
         }
 
+        /// <summary>
+        /// Специальная функция для отрисовки сразу двух строк лога слева вместо одной
+        /// </summary>
         private void lbEvents_DrawItem(object sender, DrawItemEventArgs e) {
             e.DrawBackground();
             if (e.Index >= 0) {
@@ -243,6 +279,7 @@ namespace LogViewer {
                 return;
             }
 
+            // Проверка, что такой серийный номер уже не выдан этому пользователю
             if (_db.RegisteredUsbs.Any(i =>
                 i.UsbSerial == tbUsbSerial.Text && i.User.Id == ((RegisteredUser)cbUsbUsers.SelectedItem).Id)) {
                 return;
@@ -301,6 +338,7 @@ namespace LogViewer {
                 return;
             }
 
+            // Проверка на наличия такого элемента в базе (либо имя пользователя, либо имя + фамилия)
             if (_db.RegisteredUsers.Any(i =>
                 i.FirstName == tbFirstName.Text && i.SecondName == tbSecondName.Text
                 || i.Username == cbWindowsUser.Text)) {
@@ -319,6 +357,7 @@ namespace LogViewer {
         private void bDeleteRegisteredUser_Click(object sender, EventArgs e) {
             var item = lbRegisteredUsers.SelectedItem as ListBoxItem;
             if (item != null) {
+                // Перед удалением пользователя сперва удалим все его допустимые usb
                 _db.RegisteredUsbs.RemoveRange(_db.RegisteredUsbs.Where(u => u.User.Id == item.Id));
                 _db.RegisteredUsers.Remove(
                     _db.RegisteredUsers.Where(i => i.Id == item.Id).First());
@@ -340,6 +379,9 @@ namespace LogViewer {
         }
     }
 
+    /// <summary>
+    /// Специальный класс для отображения слева в списках
+    /// </summary>
     internal class ListBoxItem {
         public int Id;
         public string Text;
