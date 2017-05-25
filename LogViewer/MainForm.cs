@@ -14,7 +14,8 @@ namespace LogViewer {
         private static readonly string ALL_USERS = "(Все пользователи)";
 
         private LogDatabase _db;
-        private SortedSet<string> _users = new SortedSet<string>();
+        private SortedSet<string> _windowsUsers = new SortedSet<string>();
+        private Dictionary<string, RegisteredUser> _registeredUsers = new Dictionary<string, RegisteredUser>();
 
         public MainForm() {
             InitializeComponent();
@@ -32,34 +33,52 @@ namespace LogViewer {
 }
 
         private void InitUsers() {
-            _users.Clear();
-            _users.UnionWith(_db.LogEntries.Select(entry => entry.Username));
-            _users.UnionWith(_db.RegisteredUsbs.Select(entry => entry.Username));
+            _registeredUsers.Clear();
+            foreach(var user in _db.RegisteredUsers) {
+                _registeredUsers.Add(user.Username, user);
+            }
+
+            _windowsUsers.Clear();
+            _windowsUsers.UnionWith(_db.LogEntries.Select(entry => entry.Username));
+            _windowsUsers.RemoveWhere(u => _registeredUsers.ContainsKey(u));
 
             cbUsers.Items.Clear();
-            cbUsers.Items.AddRange(_users.ToArray());
             cbUsers.Items.Add(ALL_USERS);
+            cbUsers.Items.AddRange(_registeredUsers.Values.ToArray());
+            cbUsers.Items.AddRange(_windowsUsers.ToArray());
+            cbUsers.SelectedIndex = 0;
 
             cbUsbUsers.Items.Clear();
-            cbUsbUsers.Items.AddRange(_users.ToArray());
             cbUsbUsers.Items.Add(ALL_USERS);
+            cbUsbUsers.Items.AddRange(_registeredUsers.Values.ToArray());
+            cbUsbUsers.SelectedIndex = 0;
+
+            cbWindowsUser.Items.Clear();
+            cbWindowsUser.Items.Add(ALL_USERS);
+            cbWindowsUser.Items.AddRange(_windowsUsers.ToArray());
+            cbWindowsUser.Items.AddRange(_registeredUsers.Keys.ToArray());
+            cbWindowsUser.SelectedIndex = 0;
 
             tbSerial.Clear();
             tbUsbSerial.Clear();
             tbPath.Clear();
             dtpFrom.Value = DateTime.Now;
             dtpTo.Value = DateTime.Now;
-
-            cbUsers.SelectedIndex = 0;
-            cbUsbUsers.SelectedIndex = 0;
+            tbCurrentSerial.Clear();
+            tbFirstName.Clear();
+            tbSecondName.Clear();
         }
 
         private void FilterLogEntries() {
             IEnumerable<LogEntry> logs;
-            if ((string)cbUsers.SelectedItem == ALL_USERS) {
+            var username = cbUsers.SelectedItem as string;
+            if (username == ALL_USERS) {
                 logs = _db.LogEntries;
             } else {
-                logs = _db.LogEntries.Where(l => l.Username == (string)cbUsers.SelectedItem);
+                if (username == null) {
+                    username = ((RegisteredUser)cbUsers.SelectedItem).Username;
+                }
+                logs = _db.LogEntries.Where(l => l.Username == username);
             }
 
             if (tbSerial.Text != "") {
@@ -86,10 +105,10 @@ namespace LogViewer {
 
         private void FilterRegisteredUsb() {
             IEnumerable<RegisteredUsbEntry> usb;
-            if ((string)cbUsbUsers.SelectedItem == ALL_USERS) {
+            if (cbUsbUsers.SelectedItem as string == ALL_USERS) {
                 usb = _db.RegisteredUsbs;
             } else {
-                usb = _db.RegisteredUsbs.Where(l => l.Username == (string)cbUsbUsers.SelectedItem);
+                usb = _db.RegisteredUsbs.Where(l => l.User.Id == ((RegisteredUser)cbUsbUsers.SelectedItem).Id);
             }
 
             if (tbUsbSerial.Text != "") {
@@ -99,6 +118,29 @@ namespace LogViewer {
             lbUsb.Items.Clear();
             lbUsb.Items.AddRange(usb.Reverse().Select(l => RegisteredUsbEntryToBoxItem(l))
                 .ToArray());
+        }
+
+        private void FilterRegisteredUsers() {
+            IEnumerable<RegisteredUser> users;
+            if ((string)cbWindowsUser.SelectedItem == ALL_USERS) {
+                users = _db.RegisteredUsers;
+            } else {
+                users = _db.RegisteredUsers.Where(l => l.Username == ((string)cbWindowsUser.SelectedItem));
+            }
+
+            if (tbFirstName.Text != "") {
+                users = users.Where(l => l.FirstName.Contains(tbFirstName.Text));
+            }
+
+            if (tbSecondName.Text != "") {
+                users = users.Where(l => l.SecondName.Contains(tbSecondName.Text));
+            }
+
+            lbRegisteredUsers.Items.Clear();
+            lbRegisteredUsers.Items.AddRange(users.Reverse().Select(v => new ListBoxItem {
+                Id = v.Id,
+                Text = string.Format("{0} {1} - [{2}]", v.FirstName, v.SecondName, v.Username)
+            }).ToArray());
         }
 
         private static string UsbStateToString(USB_STATE state) {
@@ -129,18 +171,25 @@ namespace LogViewer {
             }
         }
 
-        private static ListBoxItem LogEntryToListBoxItem(LogEntry logEntry) {
+        private ListBoxItem LogEntryToListBoxItem(LogEntry logEntry) {
             var usbEntry = logEntry as UsbStateEntry;
             StringBuilder sb = new StringBuilder();
 
             var when = logEntry.When;
+            var username = logEntry.Username;
+            RegisteredUser user;
+            _registeredUsers.TryGetValue(username, out user);
+            if (user != null) {
+                username = user.ToString();
+            }
+            
+            string serial = logEntry.SerialNumber == null ? "NO_SERIAL" : logEntry.SerialNumber;
             sb.AppendFormat("{0} {1} [{2}] <{3}>:\n  ", when.ToShortDateString(),
-                when.ToLongTimeString(), logEntry.Username, logEntry.SerialNumber);
+                when.ToLongTimeString(), username, serial);
 
             if (usbEntry != null) {
                 string action = UsbStateToString(usbEntry.State);
-                sb.AppendFormat("{0} media {1} [{2}]", action, usbEntry.DriveLetter,
-                    usbEntry.SerialNumber == null ? "NO_SERIAL" : usbEntry.SerialNumber);
+                sb.AppendFormat("{0} media {1}", action, usbEntry.DriveLetter);
             } else {
                 var fsEntry = logEntry as FSWatcherEntry;
                 string action = FileStateToString(fsEntry.State);
@@ -152,14 +201,15 @@ namespace LogViewer {
 
             return new ListBoxItem {
                 Id = logEntry.Id,
-                Text = sb.ToString()
+                Text = sb.ToString(),
+                Serial = serial
             };
         }
 
         private static ListBoxItem RegisteredUsbEntryToBoxItem(RegisteredUsbEntry entry) {
             return new ListBoxItem {
                 Id = entry.Id,
-                Text = string.Format("{0} allowed [{1}]", entry.Username, entry.UsbSerial)
+                Text = string.Format("{0} allowed [{1}]", entry.User, entry.UsbSerial)
             };
         }
 
@@ -169,7 +219,9 @@ namespace LogViewer {
 
         private void lbEvents_DrawItem(object sender, DrawItemEventArgs e) {
             e.DrawBackground();
-            e.Graphics.DrawString(lbEvents.Items[e.Index].ToString(), e.Font, new SolidBrush(e.ForeColor), e.Bounds);
+            if (e.Index >= 0) {
+                e.Graphics.DrawString(lbEvents.Items[e.Index].ToString(), e.Font, new SolidBrush(e.ForeColor), e.Bounds);
+            }
         }
 
         private void cbUsbUsers_SelectedIndexChanged(object sender, EventArgs e) {
@@ -177,18 +229,17 @@ namespace LogViewer {
         }
 
         private void bAddUsb_Click(object sender, EventArgs e) {
-            if (cbUsbUsers.Text == "" || tbUsbSerial.Text == "") {
-                //
+            if (cbUsbUsers.Text == "" || tbUsbSerial.Text == "" || cbUsbUsers.Text == ALL_USERS) {
                 return;
             }
 
             if (_db.RegisteredUsbs.Any(i =>
-                i.UsbSerial == tbUsbSerial.Text && i.Username == cbUsbUsers.Text)) {
+                i.UsbSerial == tbUsbSerial.Text && i.User.Id == ((RegisteredUser)cbUsbUsers.SelectedItem).Id)) {
                 return;
             }
 
             _db.RegisteredUsbs.Add(new RegisteredUsbEntry {
-                Username = cbUsbUsers.Text,
+                User = (RegisteredUser)(cbUsbUsers.SelectedItem),
                 UsbSerial = tbUsbSerial.Text
             });
             _db.SaveChanges();
@@ -228,11 +279,61 @@ namespace LogViewer {
         private void tbPath_TextChanged(object sender, EventArgs e) {
             FilterLogEntries();
         }
+
+        private void lbEvents_SelectedIndexChanged(object sender, EventArgs e) {
+            if (lbEvents.SelectedItem != null) {
+                tbCurrentSerial.Text = ((ListBoxItem)lbEvents.SelectedItem).Serial;
+            }
+        }
+
+        private void bAddRegisteredUser_Click(object sender, EventArgs e) {
+            if (tbSecondName.Text == "" || tbFirstName.Text == "" || cbWindowsUser.Text == ALL_USERS) {
+                return;
+            }
+
+            if (_db.RegisteredUsers.Any(i =>
+                i.FirstName == tbFirstName.Text && i.SecondName == tbSecondName.Text
+                && i.Username == cbWindowsUser.Text)) {
+                return;
+            }
+
+            _db.RegisteredUsers.Add(new RegisteredUser {
+                FirstName = tbFirstName.Text,
+                SecondName = tbSecondName.Text,
+                Username = cbWindowsUser.Text
+            });
+            _db.SaveChanges();
+            InitUsers();
+        }
+
+        private void bDeleteRegisteredUser_Click(object sender, EventArgs e) {
+            var item = lbRegisteredUsers.SelectedItem as ListBoxItem;
+            if (item != null) {
+                _db.RegisteredUsbs.RemoveRange(_db.RegisteredUsbs.Where(u => u.User.Id == item.Id));
+                _db.RegisteredUsers.Remove(
+                    _db.RegisteredUsers.Where(i => i.Id == item.Id).First());
+                _db.SaveChanges();
+                InitUsers();
+            }
+        }
+
+        private void tbFirstName_TextChanged(object sender, EventArgs e) {
+            FilterRegisteredUsers();
+        }
+
+        private void tbSecondName_TextChanged(object sender, EventArgs e) {
+            FilterRegisteredUsers();
+        }
+
+        private void cbWindowsUser_SelectedIndexChanged(object sender, EventArgs e) {
+            FilterRegisteredUsers();
+        }
     }
 
     internal class ListBoxItem {
         public int Id;
         public string Text;
+        public string Serial;
 
         public override string ToString() {
             return Text;

@@ -27,6 +27,8 @@ namespace LogViewer {
             this.tpLogEntries = new System.Windows.Forms.TabPage();
             this.splitContainerLeftRight = new System.Windows.Forms.SplitContainer();
             this.lbEvents = new System.Windows.Forms.ListBox();
+            this.lblCurrentSerial = new System.Windows.Forms.Label();
+            this.tbCurrentSerial = new System.Windows.Forms.TextBox();
             this.bReset = new System.Windows.Forms.Button();
             this.tbPath = new System.Windows.Forms.TextBox();
             this.lblFilename = new System.Windows.Forms.Label();
@@ -47,6 +49,17 @@ namespace LogViewer {
             this.lbUsbUser = new System.Windows.Forms.Label();
             this.tbUsbSerial = new System.Windows.Forms.TextBox();
             this.cbUsbUsers = new System.Windows.Forms.ComboBox();
+            this.tpRegisteredUsers = new System.Windows.Forms.TabPage();
+            this.splitContainer2 = new System.Windows.Forms.SplitContainer();
+            this.lbRegisteredUsers = new System.Windows.Forms.ListBox();
+            this.lblSecondName = new System.Windows.Forms.Label();
+            this.tbSecondName = new System.Windows.Forms.TextBox();
+            this.bDeleteRegisteredUser = new System.Windows.Forms.Button();
+            this.bAddRegisteredUser = new System.Windows.Forms.Button();
+            this.lblWindowsUser = new System.Windows.Forms.Label();
+            this.lblFirstName = new System.Windows.Forms.Label();
+            this.tbFirstName = new System.Windows.Forms.TextBox();
+            this.cbWindowsUser = new System.Windows.Forms.ComboBox();
             this.tcMain.SuspendLayout();
             this.tpLogEntries.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerLeftRight)).BeginInit();
@@ -58,6 +71,11 @@ namespace LogViewer {
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
+            this.tpRegisteredUsers.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).BeginInit();
+            this.splitContainer2.Panel1.SuspendLayout();
+            this.splitContainer2.Panel2.SuspendLayout();
+            this.splitContainer2.SuspendLayout();
             this.SuspendLayout();
             // 
             // tcMain
@@ -67,6 +85,7 @@ namespace LogViewer {
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tcMain.Controls.Add(this.tpLogEntries);
             this.tcMain.Controls.Add(this.tpRegisteredUsb);
+            this.tcMain.Controls.Add(this.tpRegisteredUsers);
             this.tcMain.Location = new System.Drawing.Point(0, 0);
             this.tcMain.Name = "tcMain";
             this.tcMain.SelectedIndex = 0;
@@ -99,6 +118,8 @@ namespace LogViewer {
             // splitContainerLeftRight.Panel2
             // 
             this.splitContainerLeftRight.Panel2.BackColor = System.Drawing.Color.Transparent;
+            this.splitContainerLeftRight.Panel2.Controls.Add(this.lblCurrentSerial);
+            this.splitContainerLeftRight.Panel2.Controls.Add(this.tbCurrentSerial);
             this.splitContainerLeftRight.Panel2.Controls.Add(this.bReset);
             this.splitContainerLeftRight.Panel2.Controls.Add(this.tbPath);
             this.splitContainerLeftRight.Panel2.Controls.Add(this.lblFilename);
@@ -131,6 +152,23 @@ namespace LogViewer {
             this.lbEvents.Size = new System.Drawing.Size(311, 384);
             this.lbEvents.TabIndex = 0;
             this.lbEvents.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.lbEvents_DrawItem);
+            this.lbEvents.SelectedIndexChanged += new System.EventHandler(this.lbEvents_SelectedIndexChanged);
+            // 
+            // lblCurrentSerial
+            // 
+            this.lblCurrentSerial.AutoSize = true;
+            this.lblCurrentSerial.Location = new System.Drawing.Point(3, 149);
+            this.lblCurrentSerial.Name = "lblCurrentSerial";
+            this.lblCurrentSerial.Size = new System.Drawing.Size(161, 13);
+            this.lblCurrentSerial.TabIndex = 13;
+            this.lblCurrentSerial.Text = "Серийный номер (копировать)";
+            // 
+            // tbCurrentSerial
+            // 
+            this.tbCurrentSerial.Location = new System.Drawing.Point(3, 165);
+            this.tbCurrentSerial.Name = "tbCurrentSerial";
+            this.tbCurrentSerial.Size = new System.Drawing.Size(161, 20);
+            this.tbCurrentSerial.TabIndex = 12;
             // 
             // bReset
             // 
@@ -226,7 +264,6 @@ namespace LogViewer {
             this.cbUsers.Location = new System.Drawing.Point(3, 16);
             this.cbUsers.Name = "cbUsers";
             this.cbUsers.Size = new System.Drawing.Size(136, 21);
-            this.cbUsers.Sorted = true;
             this.cbUsers.TabIndex = 0;
             this.cbUsers.SelectedIndexChanged += new System.EventHandler(this.cbUsers_SelectedIndexChanged);
             // 
@@ -333,9 +370,133 @@ namespace LogViewer {
             this.cbUsbUsers.Location = new System.Drawing.Point(3, 16);
             this.cbUsbUsers.Name = "cbUsbUsers";
             this.cbUsbUsers.Size = new System.Drawing.Size(136, 21);
-            this.cbUsbUsers.Sorted = true;
             this.cbUsbUsers.TabIndex = 0;
             this.cbUsbUsers.SelectedIndexChanged += new System.EventHandler(this.cbUsbUsers_SelectedIndexChanged);
+            // 
+            // tpRegisteredUsers
+            // 
+            this.tpRegisteredUsers.BackColor = System.Drawing.SystemColors.Control;
+            this.tpRegisteredUsers.Controls.Add(this.splitContainer2);
+            this.tpRegisteredUsers.Location = new System.Drawing.Point(4, 22);
+            this.tpRegisteredUsers.Name = "tpRegisteredUsers";
+            this.tpRegisteredUsers.Padding = new System.Windows.Forms.Padding(3);
+            this.tpRegisteredUsers.Size = new System.Drawing.Size(606, 390);
+            this.tpRegisteredUsers.TabIndex = 2;
+            this.tpRegisteredUsers.Text = "Зарегистрированные пользователи";
+            // 
+            // splitContainer2
+            // 
+            this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer2.FixedPanel = System.Windows.Forms.FixedPanel.Panel2;
+            this.splitContainer2.IsSplitterFixed = true;
+            this.splitContainer2.Location = new System.Drawing.Point(3, 3);
+            this.splitContainer2.Name = "splitContainer2";
+            // 
+            // splitContainer2.Panel1
+            // 
+            this.splitContainer2.Panel1.Controls.Add(this.lbRegisteredUsers);
+            // 
+            // splitContainer2.Panel2
+            // 
+            this.splitContainer2.Panel2.BackColor = System.Drawing.Color.Transparent;
+            this.splitContainer2.Panel2.Controls.Add(this.lblSecondName);
+            this.splitContainer2.Panel2.Controls.Add(this.tbSecondName);
+            this.splitContainer2.Panel2.Controls.Add(this.bDeleteRegisteredUser);
+            this.splitContainer2.Panel2.Controls.Add(this.bAddRegisteredUser);
+            this.splitContainer2.Panel2.Controls.Add(this.lblWindowsUser);
+            this.splitContainer2.Panel2.Controls.Add(this.lblFirstName);
+            this.splitContainer2.Panel2.Controls.Add(this.tbFirstName);
+            this.splitContainer2.Panel2.Controls.Add(this.cbWindowsUser);
+            this.splitContainer2.Size = new System.Drawing.Size(600, 384);
+            this.splitContainer2.SplitterDistance = 311;
+            this.splitContainer2.TabIndex = 3;
+            this.splitContainer2.TabStop = false;
+            // 
+            // lbRegisteredUsers
+            // 
+            this.lbRegisteredUsers.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lbRegisteredUsers.FormattingEnabled = true;
+            this.lbRegisteredUsers.HorizontalScrollbar = true;
+            this.lbRegisteredUsers.IntegralHeight = false;
+            this.lbRegisteredUsers.Location = new System.Drawing.Point(0, 0);
+            this.lbRegisteredUsers.Margin = new System.Windows.Forms.Padding(0);
+            this.lbRegisteredUsers.Name = "lbRegisteredUsers";
+            this.lbRegisteredUsers.Size = new System.Drawing.Size(311, 384);
+            this.lbRegisteredUsers.TabIndex = 0;
+            // 
+            // lblSecondName
+            // 
+            this.lblSecondName.AutoSize = true;
+            this.lblSecondName.Location = new System.Drawing.Point(3, 40);
+            this.lblSecondName.Name = "lblSecondName";
+            this.lblSecondName.Size = new System.Drawing.Size(59, 13);
+            this.lblSecondName.TabIndex = 10;
+            this.lblSecondName.Text = "Фамилия:";
+            // 
+            // tbSecondName
+            // 
+            this.tbSecondName.Location = new System.Drawing.Point(6, 57);
+            this.tbSecondName.Name = "tbSecondName";
+            this.tbSecondName.Size = new System.Drawing.Size(136, 20);
+            this.tbSecondName.TabIndex = 9;
+            this.tbSecondName.TextChanged += new System.EventHandler(this.tbSecondName_TextChanged);
+            // 
+            // bDeleteRegisteredUser
+            // 
+            this.bDeleteRegisteredUser.Location = new System.Drawing.Point(89, 83);
+            this.bDeleteRegisteredUser.Name = "bDeleteRegisteredUser";
+            this.bDeleteRegisteredUser.Size = new System.Drawing.Size(77, 25);
+            this.bDeleteRegisteredUser.TabIndex = 8;
+            this.bDeleteRegisteredUser.Text = "Удалить";
+            this.bDeleteRegisteredUser.UseVisualStyleBackColor = true;
+            this.bDeleteRegisteredUser.Click += new System.EventHandler(this.bDeleteRegisteredUser_Click);
+            // 
+            // bAddRegisteredUser
+            // 
+            this.bAddRegisteredUser.Location = new System.Drawing.Point(6, 83);
+            this.bAddRegisteredUser.Name = "bAddRegisteredUser";
+            this.bAddRegisteredUser.Size = new System.Drawing.Size(77, 25);
+            this.bAddRegisteredUser.TabIndex = 7;
+            this.bAddRegisteredUser.Text = "Добавить";
+            this.bAddRegisteredUser.UseVisualStyleBackColor = true;
+            this.bAddRegisteredUser.Click += new System.EventHandler(this.bAddRegisteredUser_Click);
+            // 
+            // lblWindowsUser
+            // 
+            this.lblWindowsUser.AutoSize = true;
+            this.lblWindowsUser.Location = new System.Drawing.Point(142, 0);
+            this.lblWindowsUser.Name = "lblWindowsUser";
+            this.lblWindowsUser.Size = new System.Drawing.Size(149, 13);
+            this.lblWindowsUser.TabIndex = 6;
+            this.lblWindowsUser.Text = "Пользователь компьютера:";
+            // 
+            // lblFirstName
+            // 
+            this.lblFirstName.AutoSize = true;
+            this.lblFirstName.Location = new System.Drawing.Point(3, 0);
+            this.lblFirstName.Name = "lblFirstName";
+            this.lblFirstName.Size = new System.Drawing.Size(32, 13);
+            this.lblFirstName.TabIndex = 5;
+            this.lblFirstName.Text = "Имя:";
+            // 
+            // tbFirstName
+            // 
+            this.tbFirstName.Location = new System.Drawing.Point(6, 17);
+            this.tbFirstName.Name = "tbFirstName";
+            this.tbFirstName.Size = new System.Drawing.Size(136, 20);
+            this.tbFirstName.TabIndex = 3;
+            this.tbFirstName.TextChanged += new System.EventHandler(this.tbFirstName_TextChanged);
+            // 
+            // cbWindowsUser
+            // 
+            this.cbWindowsUser.FormattingEnabled = true;
+            this.cbWindowsUser.Location = new System.Drawing.Point(145, 17);
+            this.cbWindowsUser.Name = "cbWindowsUser";
+            this.cbWindowsUser.Size = new System.Drawing.Size(136, 21);
+            this.cbWindowsUser.TabIndex = 0;
+            this.cbWindowsUser.SelectedIndexChanged += new System.EventHandler(this.cbWindowsUser_SelectedIndexChanged);
             // 
             // MainForm
             // 
@@ -360,6 +521,12 @@ namespace LogViewer {
             this.splitContainer1.Panel2.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
             this.splitContainer1.ResumeLayout(false);
+            this.tpRegisteredUsers.ResumeLayout(false);
+            this.splitContainer2.Panel1.ResumeLayout(false);
+            this.splitContainer2.Panel2.ResumeLayout(false);
+            this.splitContainer2.Panel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer2)).EndInit();
+            this.splitContainer2.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -390,6 +557,19 @@ namespace LogViewer {
         private System.Windows.Forms.TextBox tbUsbSerial;
         private System.Windows.Forms.ComboBox cbUsbUsers;
         private System.Windows.Forms.Button bReset;
+        private System.Windows.Forms.Label lblCurrentSerial;
+        private System.Windows.Forms.TextBox tbCurrentSerial;
+        private System.Windows.Forms.TabPage tpRegisteredUsers;
+        private System.Windows.Forms.SplitContainer splitContainer2;
+        private System.Windows.Forms.ListBox lbRegisteredUsers;
+        private System.Windows.Forms.Label lblSecondName;
+        private System.Windows.Forms.TextBox tbSecondName;
+        private System.Windows.Forms.Button bDeleteRegisteredUser;
+        private System.Windows.Forms.Button bAddRegisteredUser;
+        private System.Windows.Forms.Label lblWindowsUser;
+        private System.Windows.Forms.Label lblFirstName;
+        private System.Windows.Forms.TextBox tbFirstName;
+        private System.Windows.Forms.ComboBox cbWindowsUser;
     }
 }
 

@@ -36,9 +36,20 @@ namespace UsbMonitor {
         public string Path { get; set; }
     }
 
-    public class RegisteredUsbEntry {
+    public class RegisteredUser {
         public int Id { get; set; }
         public string Username { get; set; }
+        public string FirstName { get; set; }
+        public string SecondName { get; set; }
+
+        public override string ToString() {
+            return string.Format("{0} {1}", FirstName, SecondName);
+        }
+    }
+
+    public class RegisteredUsbEntry {
+        public int Id { get; set; }
+        public RegisteredUser User { get; set; }
         public string UsbSerial { get; set; }
     }
 
@@ -57,5 +68,6 @@ namespace UsbMonitor {
 
         public DbSet<LogEntry> LogEntries { get; set; }
         public DbSet<RegisteredUsbEntry> RegisteredUsbs { get; set; }
+        public DbSet<RegisteredUser> RegisteredUsers { get; set; }
     }
 }

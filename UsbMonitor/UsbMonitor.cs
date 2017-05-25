@@ -338,17 +338,10 @@ namespace UsbMonitor {
                 return null;
             }
         }
-        
-        private static bool IsAdministrator() {
-            /*var identity = WindowsIdentity.GetCurrent();
-            var principal = new WindowsPrincipal(identity);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);*/
-            return false;
-        }
 
         private bool IsUsbAllowed(string serial) {
             string user = GetCurrentActiveUser();
-            if (_db.RegisteredUsbs.Any(i => i.Username == user && i.UsbSerial == serial)) {
+            if (_db.RegisteredUsbs.Any(i => i.User.Username == user && i.UsbSerial == serial)) {
                 return true;
             }
             return false;
@@ -383,7 +376,7 @@ namespace UsbMonitor {
 
         private void CheckAttachedUsb(string driveLetter, string serial) {
             _letterToSerialMap.Add(driveLetter, serial);
-            if (IsAdministrator() || IsUsbAllowed(serial)) {
+            if (IsUsbAllowed(serial)) {
                 RegisterForHandle(driveLetter);
                 AddNewFSWatcher(driveLetter);
             } else {
@@ -408,7 +401,14 @@ namespace UsbMonitor {
             if (eventType == 2) {
                 Console.WriteLine("Added: " + driveLetter);
                 entry.State = USB_STATE.INSERTED;
-                entry.SerialNumber = GetVolumeSerialNumberByName(driveLetter);
+                for (int i = 0; i < 9; ++i) {
+                    entry.SerialNumber = GetVolumeSerialNumberByName(driveLetter);
+                    if (entry.SerialNumber != null) {
+                        break;
+                    }
+                    // Retry 9 times
+                    Thread.Sleep(333);
+                }
                 CheckAttachedUsb(driveLetter, entry.SerialNumber);
                 AddEntryToDatabase(entry);
             } else if (eventType == 3) {
