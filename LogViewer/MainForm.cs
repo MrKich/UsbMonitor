@@ -293,7 +293,7 @@ namespace LogViewer {
 
             if (_db.RegisteredUsers.Any(i =>
                 i.FirstName == tbFirstName.Text && i.SecondName == tbSecondName.Text
-                && i.Username == cbWindowsUser.Text)) {
+                || i.Username == cbWindowsUser.Text)) {
                 return;
             }
 
